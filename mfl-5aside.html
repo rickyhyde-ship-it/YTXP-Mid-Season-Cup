@@ -496,7 +496,7 @@ const STORAGE_KEY = 'ytxp_cup_v2';
 function defaultState() {
   return { wallet:null, players:[], squad:{gk:null,outfield:[null,null,null,null]},
            formation:'2-1-1', tactics:{attacking:'Balanced',passing:'Balanced',depth:'Balanced'},
-           tournament:{currentRound:0,results:[]}, aiGoals:{} };
+           tournament:{currentRound:0,results:[]}, aiGoals:{}, usedRage:[] };
 }
 let STATE = defaultState();
 
@@ -510,7 +510,7 @@ function loadState() {
     STATE.wallet=p.wallet??d.wallet; STATE.squad=p.squad??d.squad;
     STATE.formation=p.formation??d.formation; STATE.tactics=p.tactics??d.tactics;
     STATE.tournament=p.tournament??d.tournament;
-    STATE.aiGoals=p.aiGoals??d.aiGoals;
+    STATE.aiGoals=p.aiGoals??d.aiGoals; STATE.usedRage=p.usedRage??d.usedRage;
     if (!Array.isArray(STATE.squad.outfield)||STATE.squad.outfield.length!==4)
       STATE.squad.outfield=[null,null,null,null];
   } catch(e) { localStorage.removeItem(STORAGE_KEY); STATE=defaultState(); }
@@ -519,13 +519,13 @@ function loadState() {
 function saveState() {
   const s={ wallet:STATE.wallet, squad:STATE.squad, formation:STATE.formation,
             tactics:STATE.tactics, tournament:STATE.tournament,
-            aiGoals:STATE.aiGoals };
+            aiGoals:STATE.aiGoals, usedRage:STATE.usedRage };
   try { localStorage.setItem(STORAGE_KEY,JSON.stringify(s)); }
   catch(e) { try { localStorage.clear(); localStorage.setItem(STORAGE_KEY,JSON.stringify(s)); } catch(_){} }
 }
 
 function resetTournament() {
-  STATE.tournament={currentRound:0,results:[]}; STATE.aiGoals={}; saveState();
+  STATE.tournament={currentRound:0,results:[]}; STATE.aiGoals={}; STATE.usedRage=[]; saveState();
 }
 function currentRoundKey() { return ROUND_ORDER[STATE.tournament.currentRound]; }
 function currentOpponent() { return AI_TEAMS[STATE.tournament.currentRound]; }
@@ -640,7 +640,12 @@ function buildGoalCard(side,names,aiNames,minute,uScore,aScore,aiGoalCount,squad
 }
 
 function buildNonGoalCard(names,aiNames,minute) {
-  for(const text of RAGE) if(Math.random()<0.05) return {type:'rage',minute,text};
+  const availRage=RAGE.map((t,i)=>({t,i})).filter(({i})=>!STATE.usedRage.includes(i));
+  if(availRage.length&&Math.random()<0.15){
+    const pick=availRage[Math.floor(Math.random()*availRage.length)];
+    STATE.usedRage.push(pick.i); saveState();
+    return {type:'rage',minute,text:pick.t};
+  }
   const att=names.ATT.length?names.ATT:names.MID.length?names.MID:[names.GK];
   const mid=names.MID.length?names.MID:att;
   const def=names.DEF.length?names.DEF:mid;
@@ -888,9 +893,9 @@ function revealHighlights(highlights,scoreline,opp,userWins) {
 function showResult(scoreline,opp,userWins) {
   STATE.tournament.results.push({round:STATE.tournament.currentRound,opponent:opp.name,score:`${scoreline.user}–${scoreline.ai}`,won:userWins});
   const isFinalWin=userWins&&opp.roundKey==='Final';
-  if(isFinalWin){ STATE.tournament.currentRound=0; STATE.tournament.results=[]; }
+  if(isFinalWin){ STATE.tournament.currentRound=0; STATE.tournament.results=[]; STATE.usedRage=[]; }
   else if(userWins) STATE.tournament.currentRound=Math.min(STATE.tournament.currentRound+1,AI_TEAMS.length-1);
-  else STATE.tournament.currentRound=0;
+  else { STATE.tournament.currentRound=0; STATE.usedRage=[]; }
   saveState();
   showScreen('result');
   document.getElementById('result-badge').textContent=isFinalWin?'🏆':userWins?'✅':'❌';
