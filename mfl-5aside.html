@@ -607,46 +607,100 @@ const RAGE=[
 
 function buildGoalCard(side,names,aiNames,minute,uScore,aScore,aiGoalCount,squad,aiTeam) {
   const isUser=side==='user';
-  const att=names.ATT.length?names.ATT:names.MID.length?names.MID:[names.GK];
-  const mid=names.MID.length?names.MID:att;
-  const def=names.DEF.length?names.DEF:mid;
+  // Use actual role pools — don't cascade into MID when no ATT (that inflates MID goals)
+  const attPool=names.ATT; const midPool=names.MID; const defPool=names.DEF;
+  const anyOutfield=[...attPool,...midPool,...defPool];
   let scorer,assist=null;
   if(isUser) {
+    // Weighted pick: ATT 65%, MID 25%, DEF 10% — fall back only if pool empty
     const r=Math.random();
-    scorer=r<0.65&&att.length?pickRandom(att):r<0.88&&mid.length?pickRandom(mid):def.length?pickRandom(def):att[0]??names.GK;
+    if(r<0.65&&attPool.length)      scorer=pickRandom(attPool);
+    else if(r<0.90&&midPool.length) scorer=pickRandom(midPool);
+    else if(defPool.length)         scorer=pickRandom(defPool);
+    else scorer=pickRandom(anyOutfield.length?anyOutfield:[names.GK]);
+    // Assist: MID most likely, then ATT, rarely GK
     const ar=Math.random();
-    if(ar<0.55&&mid.length) assist=pickRandom(mid.filter(n=>n!==scorer))||null;
-    else if(ar<0.75&&att.length) assist=pickRandom(att.filter(n=>n!==scorer))||null;
-    else if(ar<0.80) assist=names.GK!==scorer?names.GK:null;
+    const assistCandidates=n=>n!==scorer;
+    if(ar<0.50&&midPool.filter(assistCandidates).length) assist=pickRandom(midPool.filter(assistCandidates));
+    else if(ar<0.72&&attPool.filter(assistCandidates).length) assist=pickRandom(attPool.filter(assistCandidates));
+    else if(ar<0.80&&names.GK!==scorer) assist=names.GK;
     trackUserGoal(scorer);
   } else {
-    const ai=aiNames[Math.floor(Math.random()*aiNames.length)];
-    scorer=ai; trackAIGoal(ai,aiTeam.id);
+    // AI scorers: weight towards their outfield (indices 1-4), rarely index 0 (GK)
+    const aiIdx=Math.random()<0.95?Math.floor(Math.random()*4)+1:0;
+    scorer=aiNames[Math.min(aiIdx,aiNames.length-1)];
+    trackAIGoal(scorer,aiTeam.id);
   }
-  let text=isUser?`${scorer} finds the back of the net${assist?` — assisted by ${assist}`:''}!`:`${scorer.short} beats the keeper — ${aiTeam.name} score!`;
+  const goalTexts=isUser?[
+    `${scorer} finds the back of the net${assist?` — assisted by ${assist}`:''}!`,
+    `${scorer} slots it home${assist?`, set up perfectly by ${assist}`:''}. Get in!`,
+    `${scorer} with a clinical finish${assist?` after a great ball from ${assist}`:''}!`,
+    `${scorer} doesn't miss from there${assist?` — ${assist} with the assist`:''}!`,
+    `What a finish from ${scorer}${assist?`, laid on by ${assist}`:''}!`,
+    `${scorer} strikes it sweetly${assist?` — ${assist} does the hard work`:''}!`
+  ]:[
+    `${scorer.short} beats the keeper — ${aiTeam.name} score!`,
+    `${scorer.short} makes no mistake. ${aiTeam.name} level things up.`,
+    `${scorer.short} with a composed finish. ${aiTeam.name} hit back!`,
+    `Clinical from ${scorer.short}. ${aiTeam.name} aren't done yet.`,
+    `${scorer.short} grabs one for ${aiTeam.name}. This game isn't over.`,
+    `${aiTeam.name} score through ${scorer.short}! The keeper had no chance.`
+  ];
+  let text=pickRandom(goalTexts);
   if(!isUser&&aiGoalCount>=3) text+='\nAt this point the scoreboard is just showing off.';
-  if(isUser&&scorer===names.GK) text=`You will never see that again in your lifetime. ${scorer} with the goal!`;
+  if(isUser&&anyOutfield.length===0) text=`You will never see that again in your lifetime. ${scorer} with the goal!`;
   return {type:`goal-${side}`,minute,text,score:`${uScore} – ${aScore}`};
 }
 
 function buildNonGoalCard(names,aiNames,minute) {
   for(const text of RAGE) if(Math.random()<0.05) return {type:'rage',minute,text};
-  const r=Math.random();
-  const att=names.ATT.length?names.ATT:[names.GK], mid=names.MID.length?names.MID:att, def=names.DEF.length?names.DEF:mid;
+  const att=names.ATT.length?names.ATT:names.MID.length?names.MID:[names.GK];
+  const mid=names.MID.length?names.MID:att;
+  const def=names.DEF.length?names.DEF:mid;
   const ai=pickRandom(aiNames).short;
+  const ai2=pickRandom(aiNames).short;
   const events=[
-    `${pickRandom(att)} drives at goal — the keeper palms it wide.`,
-    `${pickRandom(att)} lets fly from range… well over the bar.`,
-    `${pickRandom(def)} wins the ball cleanly and plays it out.`,
-    `${ai} runs at the backline but ${pickRandom(def)} holds firm.`,
-    `${ai} fires a shot — straight at the keeper.`,
+    // Attacking - user
+    `${pickRandom(att)} drives at goal and forces a diving save from the keeper.`,
+    `${pickRandom(att)} lets fly from range — curls just wide of the post.`,
+    `${pickRandom(att)} is through on goal but can't get the ball under control in time.`,
+    `${pickRandom(att)} blazes one over from close range. Should've scored.`,
+    `${pickRandom(att)} wins a corner after a clever run down the right.`,
+    `${pickRandom(att)} plays a lovely one-two with ${pickRandom(mid)} but the final ball doesn't come off.`,
+    `${pickRandom(att)} spins past the defender but fires straight at the keeper.`,
+    // Midfield - user
     `${pickRandom(mid)} with a smart interception in the middle of the park.`,
-    `Inch-perfect touch from ${pickRandom(mid)} to release the runner.`,
-    `${pickRandom(att)} blazes one over from close range.${Math.random()<0.2?'\nThat\'s Variance at play right before our eyes.':''}`,
-    `${pickRandom(def)} lumps it clear — nothing wasted in this phase.`,
-    `Corner wasted. ${ai} looked dangerous on the break.`
+    `Inch-perfect touch from ${pickRandom(mid)} to release the runner, but the linesman flags.`,
+    `${pickRandom(mid)} drives forward with purpose — the shot is blocked at the last moment.`,
+    `${pickRandom(mid)} strings three passes together and opens up the defence beautifully.`,
+    `${pickRandom(mid)} wins the ball back brilliantly and immediately launches an attack.`,
+    `${pickRandom(mid)} almost catches the keeper off their line with a lofted effort.`,
+    // Defensive - user
+    `${pickRandom(def)} reads the run perfectly and snuffs out the danger.`,
+    `${pickRandom(def)} throws themselves in front of the shot. Brilliant defending.`,
+    `${pickRandom(def)} wins a crunching tackle and plays it out calmly.`,
+    `${pickRandom(def)} wins everything in the air — total dominance at the back.`,
+    `${pickRandom(def)} lumps it clear as ${ai} pressed high. Nothing wasted.`,
+    // Attacking - AI
+    `${ai} runs at the backline but ${pickRandom(def)} stands firm.`,
+    `${ai} fires a shot — straight at the keeper. Comfortable enough.`,
+    `${ai} tries an ambitious lob — barely troubled the goalkeeper.`,
+    `${ai} and ${ai2} link up well but the final ball gets cut out by ${pickRandom(def)}.`,
+    `${ai} is tripped just outside the box — free kick, nothing came of it.`,
+    `${ai} skips past the first man but ${pickRandom(def)} comes across to cover brilliantly.`,
+    `Corner for the opposition. ${ai} rises highest but heads well wide.`,
+    `${ai} tries a through ball to ${ai2} — flagged offside. Good defensive line.`,
+    `${ai} scuffs their shot from twelve yards. The crowd can't believe it.`,
+    // General atmosphere
+    `Both sides feel each other out. Tight game so far.`,
+    `A scrappy phase of play — neither team able to find their rhythm.`,
+    `The referee books ${ai} for a late challenge. Tensions are rising.`,
+    `Water break on the pitch. The manager is making a point of talking tactics.`,
+    `The crowd are getting restless — they want more from the attacking players.`,
+    `${pickRandom(mid)} almost caught everyone off guard with a direct run at goal.`,
+    `Great defending from ${pickRandom(def)} — that looked dangerous for a moment.`
   ];
-  return {type:'event',minute,text:events[Math.floor(r*events.length)]};
+  return {type:'event',minute,text:pickRandom(events)};
 }
 
 function generateHighlights(scoreline,squad,formation,aiTeam) {
@@ -714,21 +768,61 @@ function renderFixtureTree() {
   });
 }
 
+// Generate seeded "prior cup run" goals for an AI team based on how far they go.
+// teamIdx = their position in the bracket (0=R32, 4=Final). Teams further in the
+// bracket played more matches to get there, so they have more accumulated goals.
+function getAIHistoryGoals(team, teamIdx) {
+  if(teamIdx===0) return {}; // Lowland FC only plays the one match — no history
+  const rng=mulberry32(team.nameSeed+8675);
+  const names=generateTeamNames(team.nameSeed);
+  const hist={};
+  // Each prior round they "won" contributes 1-3 goals from a random outfield player
+  for(let r=0;r<teamIdx;r++){
+    const goalsThisRound=Math.floor(rng()*3)+1;
+    for(let g=0;g<goalsThisRound;g++){
+      const scorerIdx=Math.floor(rng()*4)+1; // outfield only (skip index 0)
+      const n=names[Math.min(scorerIdx,4)];
+      const k=`${team.id}:${n.short}`;
+      hist[k]=(hist[k]??0)+1;
+    }
+  }
+  return hist; // { key: goalCount }
+}
+
 function renderGoldenBoot() {
   const el=document.getElementById('golden-boot');
   const byId=Object.fromEntries(STATE.players.map(p=>[p.id,p]));
   const entries=[];
+
+  // User squad
   [STATE.squad.gk,...(STATE.squad.outfield??[])].filter(Boolean).forEach(id=>{
     const p=byId[id];
-    entries.push({name:p?playerShortName(p):`#${id}`,team:'Your Team',goals:STATE.goldenBoot[id]??0,isAI:false});
+    entries.push({name:p?playerShortName(p):`#${id}`,team:'Your Team',goals:STATE.goldenBoot[id]??0});
   });
-  Object.values(STATE.aiGoals).forEach(ag=>{
-    const team=AI_TEAMS.find(t=>t.id===ag.teamId);
-    entries.push({name:ag.name,team:team?.name??'AI',goals:ag.goals,isAI:true});
+
+  // AI players: merge seeded history goals + actual tracked goals from real matches
+  AI_TEAMS.forEach((team,teamIdx)=>{
+    const hist=getAIHistoryGoals(team,teamIdx);
+    const names=generateTeamNames(team.nameSeed);
+    // Build a map of all known scorers for this team
+    const scorerMap={};
+    // Add history goals
+    Object.entries(hist).forEach(([k,g])=>{
+      const name=k.split(':').slice(1).join(':');
+      scorerMap[k]={name,team:team.name,goals:g};
+    });
+    // Add/merge actual match goals
+    Object.entries(STATE.aiGoals).filter(([k])=>k.startsWith(team.id+':')).forEach(([k,ag])=>{
+      if(scorerMap[k]) scorerMap[k].goals+=ag.goals;
+      else scorerMap[k]={name:ag.name,team:team.name,goals:ag.goals};
+    });
+    Object.values(scorerMap).forEach(e=>entries.push(e));
   });
+
   entries.sort((a,b)=>b.goals-a.goals);
+  const top=entries.slice(0,15); // cap at 15 to keep sidebar manageable
   const medals=['🥇','🥈','🥉'];
-  el.innerHTML=entries.length?entries.map((e,i)=>`
+  el.innerHTML=top.length?top.map((e,i)=>`
     <div class="gb-item">
       <div class="gb-medal">${medals[i]??''}</div>
       <div class="gb-info"><div class="gb-pname">${e.name}</div><div class="gb-pteam">${e.team}</div></div>
