@@ -849,7 +849,7 @@ function revealHighlights(highlights,scoreline,opp,userWins) {
   document.getElementById('match-loading').style.display='none';
   let i=0;
   function next() {
-    if(i>=highlights.length){ setTimeout(()=>showResult(scoreline,opp,userWins),1400); return; }
+    if(i>=highlights.length){ setTimeout(()=>showResult(scoreline,opp,userWins),1900); return; }
     const h=highlights[i++];
     const card=document.createElement('div'); card.className=`hl-card ${h.type}`;
     card.innerHTML=`<div class="hl-min">${h.minute}'</div><div class="hl-text">${h.text.replace(/\n/g,'<br>')}</div>${h.score?`<div class="hl-score">${h.score}</div>`:''}`;
@@ -857,7 +857,7 @@ function revealHighlights(highlights,scoreline,opp,userWins) {
     requestAnimationFrame(()=>requestAnimationFrame(()=>card.classList.add('visible')));
     if(h.score) scoreEl.textContent=h.score;
     card.scrollIntoView({behavior:'smooth',block:'end'});
-    setTimeout(next,h.type.startsWith('goal')?1800:900);
+    setTimeout(next,h.type.startsWith('goal')?2400:1200);
   }
   next();
 }
