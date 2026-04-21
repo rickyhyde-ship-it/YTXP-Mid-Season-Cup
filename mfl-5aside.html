@@ -217,7 +217,7 @@ body {
 .ms-team.right { text-align: right; }
 .ms-score { font-size: 50px; font-weight: 900; color: var(--orange); line-height: 1; text-align: center; }
 
-.hl-feed { display: flex; flex-direction: column; gap: 8px; }
+.hl-feed { display: flex; flex-direction: column; gap: 8px; max-height: 62vh; overflow-y: auto; scroll-behavior: smooth; }
 .hl-card {
   background: linear-gradient(135deg, var(--surface2) 0%, var(--surface3) 100%);
   border: 1px solid var(--border); border-left: 3px solid var(--muted);
@@ -393,6 +393,10 @@ body {
         <div class="card">
           <div class="hl-feed" id="hl-feed"></div>
           <div id="match-loading" class="loading-msg">Match in progress…</div>
+        </div>
+        <div id="match-continue" class="hidden" style="text-align:center;padding:16px 0 4px">
+          <button class="btn btn-primary" id="btn-match-continue" style="min-width:160px">View Result →</button>
+          <div id="match-continue-timer" style="font-size:11px;color:var(--muted);margin-top:8px"></div>
         </div>
       </div>
 
@@ -739,16 +743,17 @@ function renderTournamentStrip() {
 
 function renderFixtureTree() {
   const el=document.getElementById('fixture-tree'); el.innerHTML='';
-  const last={}, lost={};
-  STATE.tournament.results.forEach(r=>{ last[r.round]=r; if(!r.won){lost[r.round]=lost[r.round]??[]; lost[r.round].push(r);} });
+  const last={}, lastLoss={};
+  STATE.tournament.results.forEach(r=>{ last[r.round]=r; if(!r.won) lastLoss[r.round]=r; });
   AI_TEAMS.forEach((team,idx)=>{
-    (lost[idx]??[]).forEach(lr=>{
+    const lr=lastLoss[idx];
+    if(lr){
       const row=document.createElement('div'); row.className='bracket-item faded';
       row.innerHTML=`<div class="bi-round">${ROUND_LABELS[team.roundKey]}</div>
         <div class="bi-team"><span style="width:8px;height:8px;border-radius:50%;background:${team.primary};display:inline-block;flex-shrink:0"></span><span>${team.name}</span></div>
         <div class="bi-badge lost">${lr.score}</div>`;
       el.appendChild(row);
-    });
+    }
     const isCur=idx===STATE.tournament.currentRound, isPast=idx<STATE.tournament.currentRound;
     const r=last[idx];
     const row=document.createElement('div'); row.className='bracket-item'+(isCur?' current':'');
@@ -875,17 +880,27 @@ function runMatch() {
 function revealHighlights(highlights,scoreline,opp,userWins) {
   const feed=document.getElementById('hl-feed'), scoreEl=document.getElementById('live-score');
   document.getElementById('match-loading').style.display='none';
+  document.getElementById('match-continue').classList.add('hidden');
   let i=0;
+  function startContinue() {
+    const contEl=document.getElementById('match-continue');
+    const timerEl=document.getElementById('match-continue-timer');
+    contEl.classList.remove('hidden');
+    let secs=15;
+    timerEl.textContent=`Auto-advancing in ${secs}s…`;
+    const tid=setInterval(()=>{ secs--; timerEl.textContent=`Auto-advancing in ${secs}s…`; if(secs<=0){clearInterval(tid);contEl.classList.add('hidden');showResult(scoreline,opp,userWins);} },1000);
+    document.getElementById('btn-match-continue').onclick=()=>{clearInterval(tid);contEl.classList.add('hidden');showResult(scoreline,opp,userWins);};
+  }
   function next() {
-    if(i>=highlights.length){ setTimeout(()=>showResult(scoreline,opp,userWins),1900); return; }
+    if(i>=highlights.length){ startContinue(); return; }
     const h=highlights[i++];
     const card=document.createElement('div'); card.className=`hl-card ${h.type}`;
     card.innerHTML=`<div class="hl-min">${h.minute}'</div><div class="hl-text">${h.text.replace(/\n/g,'<br>')}</div>${h.score?`<div class="hl-score">${h.score}</div>`:''}`;
     feed.appendChild(card);
     requestAnimationFrame(()=>requestAnimationFrame(()=>card.classList.add('visible')));
     if(h.score) scoreEl.textContent=h.score;
-    card.scrollIntoView({behavior:'smooth',block:'end'});
-    setTimeout(next,h.type.startsWith('goal')?2400:1200);
+    feed.scrollTop=feed.scrollHeight;
+    setTimeout(next,h.type.startsWith('goal')?3800:1900);
   }
   next();
 }
