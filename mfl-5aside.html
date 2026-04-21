@@ -599,10 +599,15 @@ function trackAIGoal(scorer,teamId) {
 
 const RAGE=[
   "Woahhh play has been halted while the stewards deal with a streaker on the pitch",
-  "The referee has stopped play — there appears to be a mobile phone on the pitch. Extraordinary scenes.",
   "There's a man down… he's receiving treatment… he's back on his feet… and he's sprinting! Was that ever real?",
   "GOAL!… No wait — VAR has ruled it out for offside. By a toenail. Absolutely heartbreaking.",
-  "The referee waves away what looked like a stonewall penalty. The manager has completely lost it on the touchline."
+  "The referee waves away what looked like a stonewall penalty. The manager has completely lost it on the touchline.",
+  "We're just seeing long ball after long ball. It's a Sam Allardyce wet dream out there.... Imagine Hamez is raging though",
+  "Wow, we never thought we'd see the day but root has just told his boys to play wide!",
+  "Bruce is praying to the variance gods that this game ends in victory for his team",
+  "There are rumours the horse has sent his team out with tactics he found on google, is this cheating?",
+  "I sure hope we get to see the Rocket Ship Guoyt play in this cup.... that $1k price tag will seem a steal when the Diamond whales come sniffing",
+  "Turn down the volume lads, Mrk is selling the whole squad after this performance so expect loud keyboard bashing at any moment!"
 ];
 
 function buildGoalCard(side,names,aiNames,minute,uScore,aScore,aiGoalCount,squad,aiTeam) {
@@ -623,7 +628,7 @@ function buildGoalCard(side,names,aiNames,minute,uScore,aScore,aiGoalCount,squad
     const assistCandidates=n=>n!==scorer;
     if(ar<0.50&&midPool.filter(assistCandidates).length) assist=pickRandom(midPool.filter(assistCandidates));
     else if(ar<0.72&&attPool.filter(assistCandidates).length) assist=pickRandom(attPool.filter(assistCandidates));
-    else if(ar<0.80&&names.GK!==scorer) assist=names.GK;
+    else if(Math.random()<0.02&&names.GK!==scorer) assist=names.GK;
     trackUserGoal(scorer);
   } else {
     // AI scorers: weight towards their outfield (indices 1-4), rarely index 0 (GK)
