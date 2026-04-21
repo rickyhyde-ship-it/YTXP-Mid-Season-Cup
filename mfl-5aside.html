@@ -378,16 +378,42 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      delete parsed.players; // never keep players in storage
-      STATE = { ...defaultState(), ...parsed };
+      // If old state has players baked in, nuke it and start clean
+      if (parsed.players) {
+        localStorage.removeItem(STORAGE_KEY);
+        return;
+      }
+      const d = defaultState();
+      STATE.wallet     = parsed.wallet     ?? d.wallet;
+      STATE.squad      = parsed.squad      ?? d.squad;
+      STATE.formation  = parsed.formation  ?? d.formation;
+      STATE.tactics    = parsed.tactics    ?? d.tactics;
+      STATE.tournament = parsed.tournament ?? d.tournament;
+      STATE.goldenBoot = parsed.goldenBoot ?? d.goldenBoot;
     }
-  } catch(e) { STATE = defaultState(); }
+  } catch(e) {
+    localStorage.removeItem(STORAGE_KEY);
+    STATE = defaultState();
+  }
 }
 
 function saveState() {
-  // Never persist the players array — re-fetched on load to avoid quota errors
-  const { players, ...persisted } = STATE;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted));
+  // Explicitly list only the small fields — never include players
+  const persisted = {
+    wallet:     STATE.wallet,
+    squad:      STATE.squad,
+    formation:  STATE.formation,
+    tactics:    STATE.tactics,
+    tournament: STATE.tournament,
+    goldenBoot: STATE.goldenBoot
+  };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted));
+  } catch(e) {
+    // Quota still hit (e.g. shared file:// origin) — clear everything and retry
+    localStorage.clear();
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted)); } catch(_) {}
+  }
 }
 
 function resetTournament() {
