@@ -260,14 +260,7 @@ body {
 .bi-badge.now  { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(245,166,35,0.3); }
 .bi-badge.tbd  { color: var(--muted); }
 
-.gb-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 7px; transition: background 0.15s; }
-.gb-item:hover { background: rgba(255,255,255,0.03); }
-.gb-medal { font-size: 14px; width: 22px; text-align: center; flex-shrink: 0; }
-.gb-info { flex: 1; min-width: 0; }
-.gb-pname { font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gb-pteam { font-size: 10px; color: var(--muted); }
-.gb-goals { font-size: 15px; font-weight: 900; color: var(--orange); flex-shrink: 0; }
-.gb-goals.zero { color: var(--muted); font-weight: 400; font-size: 12px; }
+
 
 /* ── MODAL ── */
 .modal-bg {
@@ -427,10 +420,6 @@ body {
         </div>
         <div id="fixture-tree"></div>
       </div>
-      <div class="card">
-        <div class="card-title" style="margin-bottom:14px">&#127942; Golden Boot</div>
-        <div id="golden-boot"></div>
-      </div>
     </div>
   </div>
 </div>
@@ -507,7 +496,7 @@ const STORAGE_KEY = 'ytxp_cup_v2';
 function defaultState() {
   return { wallet:null, players:[], squad:{gk:null,outfield:[null,null,null,null]},
            formation:'2-1-1', tactics:{attacking:'Balanced',passing:'Balanced',depth:'Balanced'},
-           tournament:{currentRound:0,results:[]}, goldenBoot:{}, aiGoals:{} };
+           tournament:{currentRound:0,results:[]}, aiGoals:{} };
 }
 let STATE = defaultState();
 
@@ -521,7 +510,7 @@ function loadState() {
     STATE.wallet=p.wallet??d.wallet; STATE.squad=p.squad??d.squad;
     STATE.formation=p.formation??d.formation; STATE.tactics=p.tactics??d.tactics;
     STATE.tournament=p.tournament??d.tournament;
-    STATE.goldenBoot=p.goldenBoot??d.goldenBoot; STATE.aiGoals=p.aiGoals??d.aiGoals;
+    STATE.aiGoals=p.aiGoals??d.aiGoals;
     if (!Array.isArray(STATE.squad.outfield)||STATE.squad.outfield.length!==4)
       STATE.squad.outfield=[null,null,null,null];
   } catch(e) { localStorage.removeItem(STORAGE_KEY); STATE=defaultState(); }
@@ -530,13 +519,13 @@ function loadState() {
 function saveState() {
   const s={ wallet:STATE.wallet, squad:STATE.squad, formation:STATE.formation,
             tactics:STATE.tactics, tournament:STATE.tournament,
-            goldenBoot:STATE.goldenBoot, aiGoals:STATE.aiGoals };
+            aiGoals:STATE.aiGoals };
   try { localStorage.setItem(STORAGE_KEY,JSON.stringify(s)); }
   catch(e) { try { localStorage.clear(); localStorage.setItem(STORAGE_KEY,JSON.stringify(s)); } catch(_){} }
 }
 
 function resetTournament() {
-  STATE.tournament={currentRound:0,results:[]}; STATE.goldenBoot={}; STATE.aiGoals={}; saveState();
+  STATE.tournament={currentRound:0,results:[]}; STATE.aiGoals={}; saveState();
 }
 function currentRoundKey() { return ROUND_ORDER[STATE.tournament.currentRound]; }
 function currentOpponent() { return AI_TEAMS[STATE.tournament.currentRound]; }
@@ -585,12 +574,6 @@ function getRoleNames(squad,formation) {
 function pickRandom(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
 function shuffle(arr) { const a=[...arr]; for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]; } return a; }
 
-function trackUserGoal(short) {
-  const byId=Object.fromEntries(STATE.players.map(p=>[p.id,p]));
-  for(const id of [STATE.squad.gk,...(STATE.squad.outfield??[])].filter(Boolean)) {
-    const p=byId[id]; if(p&&playerShortName(p)===short){ STATE.goldenBoot[id]=(STATE.goldenBoot[id]??0)+1; return; }
-  }
-}
 function trackAIGoal(scorer,teamId) {
   const k=`${teamId}:${scorer.short}`;
   if(!STATE.aiGoals[k]) STATE.aiGoals[k]={name:scorer.short,teamId,goals:0};
@@ -629,7 +612,6 @@ function buildGoalCard(side,names,aiNames,minute,uScore,aScore,aiGoalCount,squad
     if(ar<0.50&&midPool.filter(assistCandidates).length) assist=pickRandom(midPool.filter(assistCandidates));
     else if(ar<0.72&&attPool.filter(assistCandidates).length) assist=pickRandom(attPool.filter(assistCandidates));
     else if(Math.random()<0.02&&names.GK!==scorer) assist=names.GK;
-    trackUserGoal(scorer);
   } else {
     // AI scorers: weight towards their outfield (indices 1-4), rarely index 0 (GK)
     const aiIdx=Math.random()<0.95?Math.floor(Math.random()*4)+1:0;
@@ -773,69 +755,8 @@ function renderFixtureTree() {
   });
 }
 
-// Generate seeded "prior cup run" goals for an AI team based on how far they go.
-// teamIdx = their position in the bracket (0=R32, 4=Final). Teams further in the
-// bracket played more matches to get there, so they have more accumulated goals.
-function getAIHistoryGoals(team, teamIdx) {
-  if(teamIdx===0) return {}; // Lowland FC only plays the one match — no history
-  const rng=mulberry32(team.nameSeed+8675);
-  const names=generateTeamNames(team.nameSeed);
-  const hist={};
-  // Each prior round they "won" contributes 1-3 goals from a random outfield player
-  for(let r=0;r<teamIdx;r++){
-    const goalsThisRound=Math.floor(rng()*3)+1;
-    for(let g=0;g<goalsThisRound;g++){
-      const scorerIdx=Math.floor(rng()*4)+1; // outfield only (skip index 0)
-      const n=names[Math.min(scorerIdx,4)];
-      const k=`${team.id}:${n.short}`;
-      hist[k]=(hist[k]??0)+1;
-    }
-  }
-  return hist; // { key: goalCount }
-}
 
-function renderGoldenBoot() {
-  const el=document.getElementById('golden-boot');
-  const byId=Object.fromEntries(STATE.players.map(p=>[p.id,p]));
-  const entries=[];
-
-  // User squad
-  [STATE.squad.gk,...(STATE.squad.outfield??[])].filter(Boolean).forEach(id=>{
-    const p=byId[id];
-    entries.push({name:p?playerShortName(p):`#${id}`,team:'Your Team',goals:STATE.goldenBoot[id]??0});
-  });
-
-  // AI players: merge seeded history goals + actual tracked goals from real matches
-  AI_TEAMS.forEach((team,teamIdx)=>{
-    const hist=getAIHistoryGoals(team,teamIdx);
-    const names=generateTeamNames(team.nameSeed);
-    // Build a map of all known scorers for this team
-    const scorerMap={};
-    // Add history goals
-    Object.entries(hist).forEach(([k,g])=>{
-      const name=k.split(':').slice(1).join(':');
-      scorerMap[k]={name,team:team.name,goals:g};
-    });
-    // Add/merge actual match goals
-    Object.entries(STATE.aiGoals).filter(([k])=>k.startsWith(team.id+':')).forEach(([k,ag])=>{
-      if(scorerMap[k]) scorerMap[k].goals+=ag.goals;
-      else scorerMap[k]={name:ag.name,team:team.name,goals:ag.goals};
-    });
-    Object.values(scorerMap).forEach(e=>entries.push(e));
-  });
-
-  entries.sort((a,b)=>b.goals-a.goals);
-  const top=entries.slice(0,15); // cap at 15 to keep sidebar manageable
-  const medals=['🥇','🥈','🥉'];
-  el.innerHTML=top.length?top.map((e,i)=>`
-    <div class="gb-item">
-      <div class="gb-medal">${medals[i]??''}</div>
-      <div class="gb-info"><div class="gb-pname">${e.name}</div><div class="gb-pteam">${e.team}</div></div>
-      <div class="gb-goals${e.goals===0?' zero':''}">${e.goals}</div>
-    </div>`).join(''):'<div style="color:var(--muted);font-size:12px">No goals scored yet.</div>';
-}
-
-function renderSidePanel() { renderFixtureTree(); renderGoldenBoot(); }
+function renderSidePanel() { renderFixtureTree(); }
 
 // ── SQUAD SLOTS & MODAL ───────────────────────────────────────
 let _pickerSlot=null;
@@ -891,7 +812,7 @@ function openPicker(slotType,slotIdx) {
     card.addEventListener('click',()=>{
       if(_pickerSlot.type==='gk') STATE.squad.gk=p.id;
       else STATE.squad.outfield[_pickerSlot.index]=p.id;
-      STATE.goldenBoot={}; STATE.aiGoals={}; saveState();
+      STATE.aiGoals={}; saveState();
       closePicker(); renderSquadSlots(); renderSidePanel();
     });
     grid.appendChild(card);
@@ -991,7 +912,7 @@ async function handleLoadWallet() {
     const players=await fetchPlayers(wallet);
     if(!players.length) throw new Error('No players found for this wallet address.');
     STATE.wallet=wallet; STATE.players=players;
-    if(!STATE.squad.gk){ STATE.goldenBoot={}; STATE.aiGoals={}; }
+    if(!STATE.squad.gk){ STATE.aiGoals={}; }
     saveState(); enterGame();
   } catch(e) { errEl.textContent=e.message??'Failed to load players. Check your wallet address.'; }
   finally { btn.disabled=false; btn.textContent='Load Players'; }
@@ -1012,7 +933,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('picker-modal').addEventListener('click',e=>{ if(e.target===e.currentTarget) closePicker(); });
   document.getElementById('btn-kick-off').addEventListener('click',runMatch);
   document.getElementById('btn-change-squad').addEventListener('click',()=>{
-    STATE.squad={gk:null,outfield:[null,null,null,null]}; STATE.goldenBoot={}; STATE.aiGoals={}; saveState(); renderSquadSlots(); renderSidePanel();
+    STATE.squad={gk:null,outfield:[null,null,null,null]}; STATE.aiGoals={}; saveState(); renderSquadSlots(); renderSidePanel();
   });
   document.getElementById('btn-next-match').addEventListener('click',()=>{ renderTacticsScreen(); showScreen('tactics'); });
   document.getElementById('btn-reset').addEventListener('click',()=>{
