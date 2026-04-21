@@ -217,7 +217,7 @@ body {
 .ms-team.right { text-align: right; }
 .ms-score { font-size: 50px; font-weight: 900; color: var(--orange); line-height: 1; text-align: center; }
 
-.hl-feed { display: flex; flex-direction: column; gap: 8px; max-height: 62vh; overflow-y: auto; scroll-behavior: smooth; }
+.hl-feed { display: flex; flex-direction: column; gap: 8px; max-height: 55vh; overflow-y: auto; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 .hl-card {
   background: linear-gradient(135deg, var(--surface2) 0%, var(--surface3) 100%);
   border: 1px solid var(--border); border-left: 3px solid var(--muted);
@@ -311,6 +311,7 @@ body {
   .kickoff-bar { flex-direction: column; align-items: flex-start; gap: 12px; }
   .match-scorebar { padding: 16px 16px; }
   .ms-score { font-size: 38px; }
+  .hl-feed { max-height: 42vh; }
 }
 </style>
 </head>
@@ -743,21 +744,16 @@ function renderTournamentStrip() {
 
 function renderFixtureTree() {
   const el=document.getElementById('fixture-tree'); el.innerHTML='';
-  const last={}, lastLoss={};
-  STATE.tournament.results.forEach(r=>{ last[r.round]=r; if(!r.won) lastLoss[r.round]=r; });
+  // Only use wins to determine past results — losses are retries, not bracket history
+  const lastWin={};
+  STATE.tournament.results.forEach(r=>{ if(r.won) lastWin[r.round]=r; });
   AI_TEAMS.forEach((team,idx)=>{
-    const lr=lastLoss[idx];
-    if(lr){
-      const row=document.createElement('div'); row.className='bracket-item faded';
-      row.innerHTML=`<div class="bi-round">${ROUND_LABELS[team.roundKey]}</div>
-        <div class="bi-team"><span style="width:8px;height:8px;border-radius:50%;background:${team.primary};display:inline-block;flex-shrink:0"></span><span>${team.name}</span></div>
-        <div class="bi-badge lost">${lr.score}</div>`;
-      el.appendChild(row);
-    }
     const isCur=idx===STATE.tournament.currentRound, isPast=idx<STATE.tournament.currentRound;
-    const r=last[idx];
     const row=document.createElement('div'); row.className='bracket-item'+(isCur?' current':'');
-    let badge=isPast&&r?.won?`<div class="bi-badge won">${r.score} W</div>`:isCur?'<div class="bi-badge now">&#9654; Now</div>':'<div class="bi-badge tbd">—</div>';
+    let badge;
+    if(isPast&&lastWin[idx]) badge=`<div class="bi-badge won">${lastWin[idx].score} W</div>`;
+    else if(isCur) badge='<div class="bi-badge now">&#9654; Now</div>';
+    else badge='<div class="bi-badge tbd">—</div>';
     row.innerHTML=`<div class="bi-round">${ROUND_LABELS[team.roundKey]}</div>
       <div class="bi-team"><span style="width:8px;height:8px;border-radius:50%;background:${team.primary};display:inline-block;flex-shrink:0"></span><span>${team.name}</span></div>
       ${badge}`;
