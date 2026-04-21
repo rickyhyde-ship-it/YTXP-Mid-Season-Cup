@@ -376,12 +376,18 @@ let STATE = defaultState();
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) STATE = JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      delete parsed.players; // never keep players in storage
+      STATE = { ...defaultState(), ...parsed };
+    }
   } catch(e) { STATE = defaultState(); }
 }
 
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE));
+  // Never persist the players array — re-fetched on load to avoid quota errors
+  const { players, ...persisted } = STATE;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted));
 }
 
 function resetTournament() {
@@ -1006,18 +1012,30 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Restore session if we have saved state
-  if (STATE.wallet && STATE.players.length) {
+  // Restore session — players are never persisted, re-fetch if wallet saved
+  if (STATE.wallet) {
     document.getElementById('wallet-input').value = STATE.wallet;
-    if (STATE.squad.gk) {
-      renderTacticsScreen();
-      renderSidePanel();
-      showScreen('tactics');
-    } else {
-      startSquadSelection();
-    }
+    const errEl = document.getElementById('wallet-error');
+    const btn   = document.getElementById('btn-load-wallet');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Restoring session…';
+    fetchPlayers(STATE.wallet).then(players => {
+      STATE.players = players;
+      btn.disabled = false;
+      btn.textContent = 'Load Players';
+      if (STATE.squad.gk) {
+        renderTacticsScreen();
+        renderSidePanel();
+        showScreen('tactics');
+      } else {
+        startSquadSelection();
+      }
+    }).catch(() => {
+      btn.disabled = false;
+      btn.textContent = 'Load Players';
+      showScreen('wallet');
+    });
   } else {
-    if (STATE.wallet) document.getElementById('wallet-input').value = STATE.wallet;
     showScreen('wallet');
   }
 });
