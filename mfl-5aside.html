@@ -470,7 +470,10 @@ const ATTACKING_OPTIONS = ['Park the Bus','Balanced','Gung Ho'];
 const PASSING_OPTIONS   = ['Cautious','Balanced','Hoof It'];
 const DEPTH_OPTIONS     = ['Low','Balanced','High'];
 
-const TIER_E_SET = new Set([80,101,104,106,107]);
+// 11 Tier E combos (10%): beat R16/QF/SF/Final — but NOT R32
+// Remaining 97 beat R32 at varying depths (A=32, B=27, C=22, D=16)
+// Win rates: R32=90% R16=70% QF=45% SF=25% Final=10%
+const TIER_E_SET = new Set([5,30,50,65,80,85,95,101,104,106,107]);
 function buildTierMap() {
   const t = new Array(108), nonE = [];
   for (let i=0;i<108;i++) TIER_E_SET.has(i) ? (t[i]='E') : nonE.push(i);
