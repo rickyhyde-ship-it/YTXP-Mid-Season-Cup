@@ -900,7 +900,7 @@ function revealHighlights(highlights,scoreline,opp,userWins) {
     requestAnimationFrame(()=>requestAnimationFrame(()=>card.classList.add('visible')));
     if(h.score) scoreEl.textContent=h.score;
     feed.scrollTop=feed.scrollHeight;
-    setTimeout(next,h.type.startsWith('goal')?3800:1900);
+    setTimeout(next,h.type.startsWith('goal')?3000:1500);
   }
   next();
 }
