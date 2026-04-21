@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YTXP Mid Season Cup</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #080f1d;
+    --surface: #0f1f3d;
+    --surface2: #162d58;
+    --gold: #F5A623;
+    --blue: #4FC3F7;
+    --green: #4caf50;
+    --red: #f44336;
+    --text: #ffffff;
+    --muted: #7a9abf;
+    --border: #1e3d6a;
+    --radius: 8px;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+  .screen { display: none; }
+  .screen.active { display: flex; }
+
+  /* Layout */
+  .app-layout { display: grid; grid-template-columns: 1fr 280px; gap: 16px; padding: 16px; max-width: 1100px; margin: 0 auto; }
+  .main-panel { min-width: 0; }
+  .side-panel { display: flex; flex-direction: column; gap: 16px; }
+
+  /* Cards */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .card-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--gold); margin-bottom: 12px; }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; justify-content: center; padding: 10px 20px; border-radius: var(--radius); border: none; cursor: pointer; font-size: 14px; font-weight: 600; transition: opacity 0.15s; }
+  .btn:hover { opacity: 0.85; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-primary { background: var(--gold); color: #000; }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-full { width: 100%; }
+
+  /* Form */
+  input[type="text"] { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); padding: 10px 14px; font-size: 14px; width: 100%; outline: none; }
+  input[type="text"]:focus { border-color: var(--gold); }
+
+  /* Wallet screen */
+  #screen-wallet { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .wallet-box { width: 100%; max-width: 440px; padding: 16px; }
+  .ytxp-logo { margin-bottom: 28px; }
+  .ytxp-cup-wrap { margin-bottom: 8px; }
+  .ytxp-cup-wrap svg { display: block; margin: 0 auto; }
+  .ytxp-wordmark { display: inline-block; background: #0f1f3d; border-radius: 8px; padding: 8px 20px 10px; border: 2px solid #1e3d6a; text-align: center; }
+  .ytxp-yorkshire { display: block; font-size: 24px; font-weight: 900; color: #fff; letter-spacing: 2px; line-height: 1; }
+  .ytxp-row2 { display: flex; align-items: baseline; justify-content: center; gap: 4px; font-size: 20px; font-weight: 900; line-height: 1.2; }
+  .ytxp-tea { color: var(--gold); }
+  .ytxp-amp { color: #fff; }
+  .ytxp-xp  { color: var(--blue); }
+  .ytxp-sub { font-size: 11px; letter-spacing: 3px; color: var(--muted); text-transform: uppercase; margin-top: 10px; }
+  .logo-sub { color: var(--muted); font-size: 13px; margin-bottom: 32px; }
+  .wallet-box label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .wallet-box input { margin-bottom: 12px; }
+  .error-msg { color: var(--red); font-size: 13px; margin-top: 8px; min-height: 20px; }
+
+  /* Player grid */
+  .player-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; max-height: 420px; overflow-y: auto; padding-right: 4px; }
+  .player-card { background: var(--surface2); border: 2px solid var(--border); border-radius: var(--radius); padding: 8px; text-align: center; cursor: pointer; transition: border-color 0.15s; }
+  .player-card:hover { border-color: var(--gold); }
+  .player-card.selected { border-color: var(--gold); background: #1a2d50; }
+  .player-card.disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
+  .player-card img { width: 72px; height: 72px; object-fit: contain; border-radius: 4px; background: var(--border); }
+  .player-card .pc-name { font-size: 11px; font-weight: 600; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .player-card .pc-pos { font-size: 10px; color: var(--gold); }
+  .player-card .pc-ovr { font-size: 10px; color: var(--muted); }
+
+  /* Formation selector */
+  .formation-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .tactic-row { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 12px; }
+  .tactic-group label { font-size: 11px; color: var(--muted); display: block; margin-bottom: 4px; }
+  .toggle-group { display: flex; gap: 6px; }
+  .toggle-btn { flex: 1; padding: 7px 4px; font-size: 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); cursor: pointer; text-align: center; transition: all 0.15s; }
+  .toggle-btn.active { background: var(--gold); color: #000; border-color: var(--gold); font-weight: 700; }
+
+  /* Squad display slots */
+  .squad-row { display: flex; gap: 8px; align-items: stretch; margin-bottom: 12px; }
+  .squad-slot { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px; text-align: center; font-size: 11px; }
+  .squad-slot .slot-role { color: var(--gold); font-weight: 700; font-size: 10px; text-transform: uppercase; }
+  .squad-slot .slot-name { margin-top: 2px; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .squad-slot img { width: 48px; height: 48px; object-fit: contain; }
+
+  /* Highlight cards */
+  .highlight-feed { display: flex; flex-direction: column; gap: 10px; }
+  .highlight-card { background: var(--surface2); border-left: 3px solid var(--border); border-radius: var(--radius); padding: 12px 14px; opacity: 0; transform: translateY(8px); transition: opacity 0.3s, transform 0.3s; }
+  .highlight-card.visible { opacity: 1; transform: translateY(0); }
+  .highlight-card.goal-user { border-left-color: var(--green); }
+  .highlight-card.goal-ai { border-left-color: var(--red); }
+  .highlight-card.rage { border-left-color: var(--gold); font-style: italic; }
+  .hc-minute { font-size: 10px; color: var(--muted); margin-bottom: 3px; }
+  .hc-text { font-size: 13px; line-height: 1.5; }
+  .hc-score { font-size: 16px; font-weight: 800; color: var(--gold); margin-top: 6px; }
+
+  /* Fixture tree */
+  .fixture-round { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .fixture-round:last-child { border-bottom: none; }
+  .fr-round { font-size: 10px; color: var(--muted); width: 60px; flex-shrink: 0; }
+  .fr-team { font-size: 12px; font-weight: 600; flex: 1; }
+  .fr-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; }
+  .fr-badge.won { background: var(--green); color: #000; }
+  .fr-badge.lost { background: var(--red); color: #fff; }
+  .fr-badge.active { background: var(--gold); color: #000; }
+  .fr-badge.pending { background: var(--border); color: var(--muted); }
+  .fixture-round.faded { opacity: 0.35; }
+
+  /* Golden boot */
+  .gb-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
+  .gb-rank { font-size: 12px; width: 20px; color: var(--muted); }
+  .gb-name { font-size: 12px; flex: 1; }
+  .gb-goals { font-size: 13px; font-weight: 700; color: var(--gold); }
+
+  /* Result screen */
+  .result-box { text-align: center; padding: 40px 20px; }
+  .result-title { font-size: 48px; font-weight: 900; margin-bottom: 8px; }
+  .result-title.win { color: var(--green); }
+  .result-title.loss { color: var(--red); }
+  .result-score { font-size: 36px; font-weight: 800; color: var(--gold); margin-bottom: 8px; }
+  .result-sub { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
+  .result-actions { display: flex; gap: 12px; justify-content: center; }
+
+  /* Kit badge */
+  .kit-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+
+  /* Loading */
+  .loading { text-align: center; padding: 40px; color: var(--muted); }
+
+  /* Spinner */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { width: 16px; height: 16px; border: 2px solid #333; border-top-color: var(--gold); border-radius: 50%; animation: spin 0.6s linear infinite; display: inline-block; margin-right: 6px; vertical-align: middle; }
+
+  /* Mobile */
+  @media (max-width: 700px) {
+    .app-layout { grid-template-columns: 1fr; }
+    .side-panel { order: -1; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SCREEN: Wallet -->
+<div id="screen-wallet" class="screen active">
+  <div class="wallet-box card">
+    <div class="ytxp-logo">
+      <div class="ytxp-cup-wrap">
+        <svg width="90" height="90" viewBox="0 0 90 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Mug body -->
+          <rect x="10" y="20" width="58" height="58" rx="10" fill="#F5A623"/>
+          <!-- Mug handle -->
+          <path d="M68,32 Q86,32 86,50 Q86,68 68,68" stroke="#F5A623" stroke-width="10" stroke-linecap="round" fill="none"/>
+          <!-- Mug shine -->
+          <rect x="18" y="28" width="10" height="30" rx="5" fill="#FFCA6B" opacity="0.5"/>
+          <!-- Mic body (navy) -->
+          <rect x="34" y="28" width="20" height="32" rx="10" fill="#0f1f3d"/>
+          <!-- Mic stand -->
+          <path d="M26,56 Q26,75 45,75 Q64,75 64,56" stroke="#4FC3F7" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+          <line x1="45" y1="75" x2="45" y2="84" stroke="#4FC3F7" stroke-width="3.5" stroke-linecap="round"/>
+          <line x1="38" y1="84" x2="52" y2="84" stroke="#4FC3F7" stroke-width="3.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="ytxp-wordmark">
+        <span class="ytxp-yorkshire">YORKSHIRE</span>
+        <div class="ytxp-row2">
+          <span class="ytxp-tea">TEA</span>
+          <span class="ytxp-amp">&amp;</span>
+          <span class="ytxp-xp">XP</span>
+        </div>
+      </div>
+      <div class="ytxp-sub">Mid Season Cup</div>
+    </div>
+    <div class="logo-sub">Enter your wallet to load your agency</div>
+    <label>Flow Wallet Address</label>
+    <input type="text" id="wallet-input" placeholder="0x..." autocomplete="off">
+    <button class="btn btn-primary btn-full" id="btn-load-wallet">Load Players</button>
+    <div class="error-msg" id="wallet-error"></div>
+  </div>
+</div>
+
+<!-- SCREENS: In-game (use app-layout) -->
+<div id="screen-game" class="screen">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px 0">
+    <div style="font-size:13px;font-weight:800;letter-spacing:0.5px">
+      <span style="color:#F5A623">YTXP</span>
+      <span style="color:var(--muted);font-weight:400;margin-left:6px;font-size:11px;letter-spacing:2px;text-transform:uppercase">Mid Season Cup</span>
+    </div>
+    <div style="font-size:11px;color:var(--muted)">
+      <a href="#" id="btn-change-wallet" style="color:var(--muted)">Change wallet</a>
+    </div>
+  </div>
+  <div class="app-layout">
+    <div class="main-panel">
+
+      <!-- SCREEN: Squad Selection -->
+      <div id="screen-squad" class="screen">
+        <div class="card">
+          <div class="card-title" id="squad-step-label">Step 1 — Pick Your Goalkeeper</div>
+          <div class="player-grid" id="player-grid"></div>
+          <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
+            <button class="btn btn-ghost" id="btn-squad-back" style="display:none">Back</button>
+            <button class="btn btn-primary" id="btn-squad-next" disabled>Continue</button>
+            <span style="font-size:12px;color:var(--muted);margin-left:auto" id="squad-selection-hint"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCREEN: Pre-match (tactics) -->
+      <div id="screen-tactics" class="screen">
+        <div class="card" style="margin-bottom:12px">
+          <div class="card-title">Your Lineup</div>
+          <div id="tactics-squad-display"></div>
+        </div>
+        <div class="card" style="margin-bottom:12px">
+          <div class="card-title">Formation</div>
+          <div class="formation-grid" id="formation-selector"></div>
+        </div>
+        <div class="card" style="margin-bottom:12px">
+          <div class="card-title">Tactics</div>
+          <div class="tactic-row" id="tactics-selector"></div>
+        </div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div>
+              <div style="font-size:11px;color:var(--muted)">Next Opponent</div>
+              <div id="opponent-name" style="font-size:18px;font-weight:800"></div>
+            </div>
+            <div id="opponent-kit" style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--muted)"></div>
+          </div>
+          <button class="btn btn-primary btn-full" id="btn-kick-off">Kick Off</button>
+        </div>
+      </div>
+
+      <!-- SCREEN: Match -->
+      <div id="screen-match" class="screen">
+        <div class="card" style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-size:13px;color:var(--muted)" id="match-header-home">Your Team</div>
+            <div id="live-score" style="font-size:28px;font-weight:900;color:var(--gold)">0 – 0</div>
+            <div style="font-size:13px;color:var(--muted);text-align:right" id="match-header-away">AI Team</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="highlight-feed" id="highlight-feed"></div>
+          <div id="match-loading" class="loading">Match in progress…</div>
+        </div>
+      </div>
+
+      <!-- SCREEN: Result -->
+      <div id="screen-result" class="screen">
+        <div class="card result-box">
+          <div class="result-title" id="result-title">WIN</div>
+          <div class="result-score" id="result-score">2 – 1</div>
+          <div class="result-sub" id="result-sub">You advance to the Round of 16</div>
+          <div class="result-actions">
+            <button class="btn btn-ghost" id="btn-change-squad">Change Squad</button>
+            <button class="btn btn-primary" id="btn-next-match">Next Match</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /main-panel -->
+
+    <div class="side-panel">
+      <div class="card">
+        <div class="card-title">Tournament</div>
+        <div id="fixture-tree"></div>
+        <button class="btn btn-ghost btn-full" id="btn-reset" style="margin-top:12px;font-size:11px">Reset Tournament</button>
+      </div>
+      <div class="card">
+        <div class="card-title">Golden Boot</div>
+        <div id="golden-boot"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+'use strict';
+// ============================================================
+// § DATA
+// ============================================================
+
+const AI_TEAMS = [
+  { id:'lowland',  name:'Lowland FC',        roundKey:'R32',   primary:'#2d8f2d', secondary:'#ffffff', nameSeed:12345 },
+  { id:'irongate', name:'Irongate United',    roundKey:'R16',   primary:'#1a1a6e', secondary:'#c8a830', nameSeed:67890 },
+  { id:'vantage',  name:'Vantage City SC',    roundKey:'QF',    primary:'#cc2222', secondary:'#111111', nameSeed:24680 },
+  { id:'redshore', name:'Redshore Athletic',  roundKey:'SF',    primary:'#e87722', secondary:'#ffffff', nameSeed:13579 },
+  { id:'variance', name:'Variance M.F.C',     roundKey:'Final', primary:'#1a0030', secondary:'#8b2be2', nameSeed:99999 }
+];
+
+const ROUND_ORDER = ['R32','R16','QF','SF','Final'];
+const ROUND_LABELS = { R32:'Round of 32', R16:'Round of 16', QF:'Quarter-Final', SF:'Semi-Final', Final:'Final' };
+
+const FORMATIONS = ['3-1-0','2-1-1','1-2-1','1-1-2'];
+const FORMATION_ROLES = {
+  '3-1-0': ['DEF','DEF','DEF','MID'],
+  '2-1-1': ['DEF','DEF','MID','ATT'],
+  '1-2-1': ['DEF','MID','MID','ATT'],
+  '1-1-2': ['DEF','MID','ATT','ATT']
+};
+
+const ATTACKING_OPTIONS = ['Park the Bus','Balanced','Gung Ho'];
+const PASSING_OPTIONS   = ['Cautious','Balanced','Hoof It'];
+const DEPTH_OPTIONS     = ['Low','Balanced','High'];
+
+// 108 combos: index = formation*27 + attacking*9 + passing*3 + depth
+// Tier E: beats R16/QF/SF/Final — fails R32 (the Final puzzle combos)
+const TIER_E_SET = new Set([80, 101, 104, 106, 107]);
+
+function buildTierMap() {
+  const tiers = new Array(108);
+  const nonE = [];
+  for (let i = 0; i < 108; i++) {
+    if (TIER_E_SET.has(i)) { tiers[i] = 'E'; } else { nonE.push(i); }
+  }
+  // nonE = 103 entries → A=32, B=27, C=22, D=22
+  nonE.slice(0,  32).forEach(i => { tiers[i] = 'A'; });
+  nonE.slice(32, 59).forEach(i => { tiers[i] = 'B'; });
+  nonE.slice(59, 81).forEach(i => { tiers[i] = 'C'; });
+  nonE.slice(81     ).forEach(i => { tiers[i] = 'D'; });
+  return tiers;
+}
+const TIER_MAP = buildTierMap();
+
+const TIER_BEATS = {
+  A: new Set(['R32']),
+  B: new Set(['R32','R16']),
+  C: new Set(['R32','R16','QF']),
+  D: new Set(['R32','R16','QF','SF']),
+  E: new Set(['R16','QF','SF','Final'])
+};
+
+function getComboIndex(formation, attacking, passing, depth) {
+  return FORMATIONS.indexOf(formation) * 27
+       + ATTACKING_OPTIONS.indexOf(attacking) * 9
+       + PASSING_OPTIONS.indexOf(passing) * 3
+       + DEPTH_OPTIONS.indexOf(depth);
+}
+
+function doesWin(formation, attacking, passing, depth, roundKey) {
+  const idx = getComboIndex(formation, attacking, passing, depth);
+  return TIER_BEATS[TIER_MAP[idx]].has(roundKey);
+}
+
+function mulberry32(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const FIRST_NAMES = ['Marco','Luca','James','Carlos','Yusuf','Pierre','André','Kai','Tomás','Emre',
+                     'Filip','Nicolás','Arjun','Viktor','Hamid','Dante','Ryo','Oluwaseun','Matías','Søren'];
+const LAST_NAMES  = ['Silva','Müller','García','Okafor','Tanaka','Dubois','Santos','Weber','Diallo','Rossi',
+                     'Kovač','Fernández','Nakamura','Johansson','Al-Rashid','Mbeki','Andersen','Popescu','Cruz','Bergström'];
+
+function generateTeamNames(seed) {
+  const rng = mulberry32(seed);
+  return Array.from({length: 5}, () => {
+    const first = FIRST_NAMES[Math.floor(rng() * FIRST_NAMES.length)];
+    const last  = LAST_NAMES[Math.floor(rng() * LAST_NAMES.length)];
+    return { first, last, short: `${first[0]}. ${last}` };
+  });
+}
+
+// ============================================================
+// § STATE
+// ============================================================
+
+const STORAGE_KEY = 'mfl5aside_state';
+
+function defaultState() {
+  return {
+    wallet: null,
+    players: [],
+    squad: { gk: null, outfield: [] },
+    formation: '2-1-1',
+    tactics: { attacking: 'Balanced', passing: 'Balanced', depth: 'Balanced' },
+    tournament: { currentRound: 0, results: [] },
+    goldenBoot: {}
+  };
+}
+
+let STATE = defaultState();
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) STATE = JSON.parse(raw);
+  } catch(e) { STATE = defaultState(); }
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(STATE));
+}
+
+function resetTournament() {
+  STATE.tournament = { currentRound: 0, results: [] };
+  STATE.goldenBoot = {};
+  saveState();
+}
+
+function currentRoundKey() {
+  return ROUND_ORDER[STATE.tournament.currentRound];
+}
+
+function currentOpponent() {
+  return AI_TEAMS[STATE.tournament.currentRound];
+}
+
+// ============================================================
+// § API
+// ============================================================
+
+const API_BASE = 'https://z519wdyajg.execute-api.us-east-1.amazonaws.com/prod';
+const IMG_BASE  = 'https://d13e14gtps4iwl.cloudfront.net/players/v2';
+
+async function fetchPlayers(wallet) {
+  const url = `${API_BASE}/players?limit=1500&ownerWalletAddress=${encodeURIComponent(wallet)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  const data = await res.json();
+  return Array.isArray(data) ? data : (data.data ?? data.players ?? []);
+}
+
+function playerImg(id) {
+  return `${IMG_BASE}/${id}/card.png`;
+}
+
+function playerName(p) {
+  const m = p.metadata ?? p;
+  return `${m.firstName} ${m.lastName}`;
+}
+
+function playerShortName(p) {
+  const m = p.metadata ?? p;
+  return `${m.firstName[0]}. ${m.lastName}`;
+}
+
+function playerPositions(p) {
+  return (p.metadata ?? p).positions ?? [];
+}
+
+function playerOverall(p) {
+  return (p.metadata ?? p).overall ?? 0;
+}
+
+function isGK(p) {
+  return playerPositions(p).includes('GK');
+}
+
+// ============================================================
+// § ENGINE
+// ============================================================
+
+function weightedGoals() {
+  const r = Math.random();
+  if (r < 0.40) return 1;
+  if (r < 0.75) return 2;
+  if (r < 0.90) return 3;
+  if (r < 0.97) return 4;
+  return 5;
+}
+
+function generateScoreline(userWins) {
+  let u, a;
+  do { u = weightedGoals(); a = weightedGoals(); } while (u === a);
+  if (userWins && u < a) [u, a] = [a, u];
+  if (!userWins && a < u) [u, a] = [a, u];
+  return { user: u, ai: a };
+}
+
+function getRolePlayerNames(squad, formation) {
+  const byId  = Object.fromEntries(STATE.players.map(p => [p.id, p]));
+  const gkObj = byId[squad.gk];
+  const roles = FORMATION_ROLES[formation] ?? ['DEF','DEF','MID','ATT'];
+  const result = { GK: gkObj ? playerShortName(gkObj) : 'Goalkeeper', DEF: [], MID: [], ATT: [] };
+  squad.outfield.forEach((id, i) => {
+    const p = byId[id];
+    result[roles[i]].push(p ? playerShortName(p) : 'Player');
+  });
+  return result;
+}
+
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function trackGoal(squad, scorerShortName) {
+  const byId = Object.fromEntries(STATE.players.map(p => [p.id, p]));
+  const ids = [squad.gk, ...squad.outfield];
+  for (const id of ids) {
+    const p = byId[id];
+    if (p && playerShortName(p) === scorerShortName) {
+      STATE.goldenBoot[id] = (STATE.goldenBoot[id] ?? 0) + 1;
+      return;
+    }
+  }
+}
+
+const RAGE_EVENTS = [
+  "Woahhh play has been halted while the stewards deal with a streaker on the pitch",
+  "The referee has stopped play — there appears to be a mobile phone on the pitch. Extraordinary scenes.",
+  "There's a man down… he's receiving treatment… he's back on his feet… and he's sprinting! Was that ever real?",
+  "GOAL!… No wait — VAR has ruled it out for offside. By a toenail. Absolutely heartbreaking.",
+  "The referee waves away what looked like a stonewall penalty. The manager has completely lost it on the touchline."
+];
+
+function buildNonGoalCard(names, aiNames, minute) {
+  // Rage bait check — each event has 5% chance
+  for (const text of RAGE_EVENTS) {
+    if (Math.random() < 0.05) return { type: 'rage', minute, text };
+  }
+  const r = Math.random();
+  if (r < 0.18) {
+    const att = pickRandom(names.ATT.length ? names.ATT : [names.GK]);
+    return { type: 'miss', minute, text: `${att} drives at goal — the keeper palms it wide.` };
+  }
+  if (r < 0.32) {
+    const att = pickRandom(names.ATT.length ? names.ATT : names.MID.length ? names.MID : [names.GK]);
+    const base = `${att} lets fly from range… well over the bar.`;
+    const text = Math.random() < 0.20 ? "That's Variance at play right before our eyes." : base;
+    return { type: 'miss', minute, text };
+  }
+  if (r < 0.50) {
+    const def = pickRandom(names.DEF.length ? names.DEF : [names.GK]);
+    return { type: 'tackle', minute, text: `${def} reads the play brilliantly and wins the ball cleanly.` };
+  }
+  if (r < 0.65) {
+    const aiAtt = pickRandom(aiNames);
+    return { type: 'save', minute, text: `${aiAtt.short} gets in behind — ${names.GK} makes himself big and smothers it!` };
+  }
+  if (r < 0.78) {
+    const mid = pickRandom(names.MID.length ? names.MID : names.DEF.length ? names.DEF : [names.GK]);
+    return { type: 'tackle', minute, text: `${mid} cuts out the pass before it reaches its target.` };
+  }
+  if (r < 0.88) {
+    const mid = pickRandom(names.MID.length ? names.MID : [names.GK]);
+    const att = pickRandom(names.ATT.length ? names.ATT : names.MID.length ? names.MID : [names.GK]);
+    return { type: 'build', minute, text: `${mid} drives forward and combines neatly with ${att}.` };
+  }
+  const aiAttacker = pickRandom(aiNames);
+  return { type: 'miss', minute, text: `${aiAttacker.short} blazes over from a promising position.` };
+}
+
+function buildGoalCard(side, names, aiNames, minute, userScore, aiScore, aiGoalCount, squad) {
+  if (side === 'user') {
+    const r = Math.random();
+    let scorer;
+    if (r < 0.60 && names.ATT.length) scorer = pickRandom(names.ATT);
+    else if (r < 0.90 && names.MID.length) scorer = pickRandom(names.MID);
+    else if (names.DEF.length) scorer = pickRandom(names.DEF);
+    else scorer = pickRandom(names.MID.length ? names.MID : [names.GK]);
+
+    const ar = Math.random();
+    if (ar < 0.05) {
+      const text = `${names.GK} launches it forward — ${scorer} controls and finishes coolly. What a ball from the goalkeeper!\nYou will never see that again in your lifetime.`;
+      trackGoal(squad, scorer);
+      return { type: 'goal-user', minute, text, score: `${userScore} – ${aiScore}` };
+    }
+    let assister;
+    if (ar < 0.60 && names.MID.length) {
+      assister = pickRandom(names.MID.filter(n => n !== scorer).concat(names.MID));
+    } else if (names.ATT.length) {
+      assister = pickRandom(names.ATT.filter(n => n !== scorer).concat(names.ATT));
+    }
+    trackGoal(squad, scorer);
+    const assistText = assister && assister !== scorer ? ` Assisted by ${assister}.` : '';
+    return { type: 'goal-user', minute, text: `GOAL! ${scorer} slots it home!${assistText}`, score: `${userScore} – ${aiScore}` };
+  } else {
+    const scorer = pickRandom(aiNames);
+    let text = `${scorer.short} puts the ball in the back of the net.`;
+    if (aiGoalCount >= 3) text += '\nAt this point the scoreboard is just showing off.';
+    return { type: 'goal-ai', minute, text, score: `${userScore} – ${aiScore}` };
+  }
+}
+
+function generateHighlights(scoreline, squad, formation, aiTeam) {
+  const { user: userGoals, ai: aiGoals } = scoreline;
+  const totalGoals = userGoals + aiGoals;
+  const names    = getRolePlayerNames(squad, formation);
+  const aiNames  = generateTeamNames(aiTeam.nameSeed);
+  const minutes  = shuffle([3,8,12,17,22,28,33,39,44,51,57,63,68,74,79,85,88]).slice(0,10).sort((a,b)=>a-b);
+
+  const goalSlots  = shuffle([...Array(10).keys()]).slice(0, totalGoals);
+  const goalEvents = shuffle([...Array(userGoals).fill('user'), ...Array(aiGoals).fill('ai')]);
+
+  const cards = [];
+  let uScore = 0, aScore = 0, aiGoalCount = 0;
+
+  for (let i = 0; i < 10; i++) {
+    const minute  = minutes[i];
+    const slotIdx = goalSlots.indexOf(i);
+    if (slotIdx !== -1) {
+      const side = goalEvents[slotIdx];
+      if (side === 'user') uScore++;
+      else { aScore++; aiGoalCount++; }
+      cards.push(buildGoalCard(side, names, aiNames, minute, uScore, aScore, aiGoalCount, squad));
+    } else {
+      cards.push(buildNonGoalCard(names, aiNames, minute));
+    }
+  }
+  return cards;
+}
+
+// ============================================================
+// § UI
+// ============================================================
+
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+  if (name === 'wallet') {
+    document.getElementById('screen-wallet').classList.add('active');
+  } else {
+    document.getElementById('screen-game').classList.add('active');
+    document.getElementById(`screen-${name}`).classList.add('active');
+  }
+}
+
+// Squad selection
+let squadPickStep = 0;
+let pendingSquad  = { gk: null, outfield: [] };
+
+function startSquadSelection() {
+  const gkPool = STATE.players.filter(p => isGK(p));
+  if (!gkPool.length) {
+    alert('No Goalkeepers found in your agency. Add a GK-position player first.');
+    return;
+  }
+  pendingSquad = { gk: STATE.squad.gk, outfield: [...STATE.squad.outfield] };
+  squadPickStep = 0;
+  showScreen('squad');
+  renderSidePanel();
+  renderSquadStep();
+}
+
+function renderSquadStep() {
+  const isGKStep = (squadPickStep === 0);
+  document.getElementById('squad-step-label').textContent =
+    isGKStep ? 'Step 1 — Pick Your Goalkeeper' : 'Step 2 — Pick 4 Outfield Players';
+  document.getElementById('squad-selection-hint').textContent =
+    isGKStep ? '' : `${pendingSquad.outfield.length} / 4 selected`;
+
+  const pool = isGKStep
+    ? STATE.players.filter(p => isGK(p))
+    : STATE.players.filter(p => !isGK(p));
+
+  const grid = document.getElementById('player-grid');
+  grid.innerHTML = '';
+
+  pool.forEach(p => {
+    const id = p.id;
+    const isSelected = isGKStep ? pendingSquad.gk === id : pendingSquad.outfield.includes(id);
+    const isDisabled = !isGKStep && !isSelected && pendingSquad.outfield.length >= 4;
+
+    const card = document.createElement('div');
+    card.className = `player-card${isSelected ? ' selected' : ''}${isDisabled ? ' disabled' : ''}`;
+    card.innerHTML = `
+      <img src="${playerImg(id)}" alt="${playerName(p)}" loading="lazy" onerror="this.style.display='none'">
+      <div class="pc-name">${playerName(p)}</div>
+      <div class="pc-pos">${playerPositions(p).join(' / ')}</div>
+      <div class="pc-ovr">OVR ${playerOverall(p)}</div>`;
+
+    card.addEventListener('click', () => {
+      if (isGKStep) {
+        pendingSquad.gk = id;
+      } else {
+        if (isSelected) pendingSquad.outfield = pendingSquad.outfield.filter(x => x !== id);
+        else if (pendingSquad.outfield.length < 4) pendingSquad.outfield.push(id);
+      }
+      renderSquadStep();
+    });
+    grid.appendChild(card);
+  });
+
+  const nextBtn = document.getElementById('btn-squad-next');
+  const backBtn = document.getElementById('btn-squad-back');
+  backBtn.style.display = isGKStep ? 'none' : 'inline-flex';
+  nextBtn.textContent = isGKStep ? 'Continue' : 'Confirm Squad';
+  nextBtn.disabled = isGKStep ? !pendingSquad.gk : pendingSquad.outfield.length !== 4;
+}
+
+// Tactics screen
+function getSquadPlayers() {
+  const byId = Object.fromEntries(STATE.players.map(p => [p.id, p]));
+  return { gk: byId[STATE.squad.gk], outfield: STATE.squad.outfield.map(id => byId[id]) };
+}
+
+function renderTacticsSquadDisplay() {
+  const { gk, outfield } = getSquadPlayers();
+  const roles = FORMATION_ROLES[STATE.formation] ?? ['DEF','DEF','MID','ATT'];
+  const el = document.getElementById('tactics-squad-display');
+  const all = [{ player: gk, role: 'GK' }, ...outfield.map((p, i) => ({ player: p, role: roles[i] }))];
+  el.innerHTML = `<div class="squad-row">${all.map(({ player: p, role }) => p ? `
+    <div class="squad-slot">
+      <div class="slot-role">${role}</div>
+      <img src="${playerImg(p.id)}" alt="${playerName(p)}" onerror="this.style.display='none'">
+      <div class="slot-name">${playerShortName(p)}</div>
+    </div>` : `<div class="squad-slot"><div class="slot-role">${role}</div><div style="color:var(--muted);font-size:11px">Empty</div></div>`
+  ).join('')}</div>`;
+}
+
+function renderFormationSelector() {
+  const el = document.getElementById('formation-selector');
+  el.innerHTML = FORMATIONS.map(f => `
+    <button class="toggle-btn${STATE.formation === f ? ' active' : ''}" data-f="${f}">${f}</button>`
+  ).join('');
+  el.querySelectorAll('.toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      STATE.formation = btn.dataset.f;
+      renderTacticsSquadDisplay();
+      renderFormationSelector();
+    });
+  });
+}
+
+function renderTacticSelector(containerId, options, key) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = `
+    <div class="tactic-group">
+      <label>${key.charAt(0).toUpperCase() + key.slice(1)}</label>
+      <div class="toggle-group">
+        ${options.map(o => `<button class="toggle-btn${STATE.tactics[key] === o ? ' active' : ''}" data-v="${o}">${o}</button>`).join('')}
+      </div>
+    </div>`;
+  el.querySelectorAll('.toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      STATE.tactics[key] = btn.dataset.v;
+      renderTacticSelector(containerId, options, key);
+    });
+  });
+}
+
+function renderOpponentInfo() {
+  const opp = currentOpponent();
+  document.getElementById('opponent-name').textContent = opp.name;
+  document.getElementById('opponent-kit').innerHTML = `
+    <span class="kit-dot" style="background:${opp.primary}"></span>
+    <span class="kit-dot" style="background:${opp.secondary};border:1px solid #444"></span>
+    ${ROUND_LABELS[opp.roundKey]}`;
+}
+
+function renderTacticsScreen() {
+  renderTacticsSquadDisplay();
+  renderFormationSelector();
+  const el = document.getElementById('tactics-selector');
+  el.innerHTML = '';
+  [
+    { options: ATTACKING_OPTIONS, key: 'attacking', id: 'tac-att' },
+    { options: PASSING_OPTIONS,   key: 'passing',   id: 'tac-pas' },
+    { options: DEPTH_OPTIONS,     key: 'depth',     id: 'tac-dep' }
+  ].forEach(({ options, key, id }) => {
+    const wrapper = document.createElement('div');
+    wrapper.id = id;
+    el.appendChild(wrapper);
+    renderTacticSelector(id, options, key);
+  });
+  renderOpponentInfo();
+}
+
+// Match screen
+function runMatch() {
+  const opp      = currentOpponent();
+  const userWins = doesWin(STATE.formation, STATE.tactics.attacking, STATE.tactics.passing, STATE.tactics.depth, opp.roundKey);
+  const scoreline  = generateScoreline(userWins);
+  const highlights = generateHighlights(scoreline, STATE.squad, STATE.formation, opp);
+
+  showScreen('match');
+  document.getElementById('match-header-home').textContent = 'Your Team';
+  document.getElementById('match-header-away').textContent = opp.name;
+  document.getElementById('live-score').textContent = '0 – 0';
+  document.getElementById('match-loading').style.display = 'block';
+  document.getElementById('highlight-feed').innerHTML = '';
+
+  revealHighlights(highlights, scoreline, opp, userWins);
+}
+
+function revealHighlights(highlights, scoreline, opp, userWins) {
+  const feed    = document.getElementById('highlight-feed');
+  const scoreEl = document.getElementById('live-score');
+  document.getElementById('match-loading').style.display = 'none';
+  let i = 0;
+
+  function revealNext() {
+    if (i >= highlights.length) {
+      setTimeout(() => showResult(scoreline, opp, userWins), 1200);
+      return;
+    }
+    const h = highlights[i++];
+    const card = document.createElement('div');
+    card.className = `highlight-card ${h.type}`;
+    card.innerHTML = `
+      <div class="hc-minute">${h.minute}'</div>
+      <div class="hc-text">${h.text.replace(/\n/g, '<br>')}</div>
+      ${h.score ? `<div class="hc-score">${h.score}</div>` : ''}`;
+    feed.appendChild(card);
+    requestAnimationFrame(() => requestAnimationFrame(() => card.classList.add('visible')));
+    if (h.score) scoreEl.textContent = h.score;
+    card.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    setTimeout(revealNext, h.type.startsWith('goal') ? 1800 : 900);
+  }
+
+  revealNext();
+}
+
+// Result screen
+function showResult(scoreline, opp, userWins) {
+  STATE.tournament.results.push({
+    round: STATE.tournament.currentRound,
+    opponent: opp.name,
+    score: `${scoreline.user}–${scoreline.ai}`,
+    won: userWins
+  });
+
+  const isFinalWin = userWins && opp.roundKey === 'Final';
+  if (isFinalWin) {
+    STATE.tournament.currentRound = 0;
+    STATE.tournament.results = [];
+  } else if (userWins) {
+    STATE.tournament.currentRound = Math.min(STATE.tournament.currentRound + 1, AI_TEAMS.length - 1);
+  } else {
+    STATE.tournament.currentRound = 0;
+  }
+  saveState();
+  renderSidePanel();
+
+  showScreen('result');
+  const titleEl = document.getElementById('result-title');
+  titleEl.textContent = userWins ? 'WIN!' : 'LOSS';
+  titleEl.className   = `result-title ${userWins ? 'win' : 'loss'}`;
+  document.getElementById('result-score').textContent = `${scoreline.user} – ${scoreline.ai}`;
+  document.getElementById('result-sub').textContent = isFinalWin
+    ? '🏆 You have won the YTXP Mid Season Cup!'
+    : userWins
+      ? `You advance to the ${ROUND_LABELS[currentRoundKey()]}`
+      : `Back to the ${ROUND_LABELS['R32']}`;
+  document.getElementById('btn-next-match').textContent = isFinalWin ? 'Play Again' : userWins ? 'Next Match' : 'Try Again';
+}
+
+// Fixture tree + Golden Boot
+function renderFixtureTree() {
+  const el = document.getElementById('fixture-tree');
+  el.innerHTML = '';
+  const resultsByRound = {};
+  STATE.tournament.results.forEach(r => {
+    if (!resultsByRound[r.round]) resultsByRound[r.round] = [];
+    resultsByRound[r.round].push(r);
+  });
+
+  AI_TEAMS.forEach((team, idx) => {
+    const roundResults = resultsByRound[idx] ?? [];
+    const lastResult   = roundResults[roundResults.length - 1];
+    const isCurrent    = idx === STATE.tournament.currentRound;
+    const isPast       = idx < STATE.tournament.currentRound;
+
+    roundResults.filter(r => !r.won).forEach(r => {
+      const row = document.createElement('div');
+      row.className = 'fixture-round faded';
+      row.innerHTML = `
+        <div class="fr-round">${ROUND_LABELS[team.roundKey]}</div>
+        <div class="fr-team"><span class="kit-dot" style="background:${team.primary}"></span>${team.name}</div>
+        <div class="fr-badge lost">${r.score} L</div>`;
+      el.appendChild(row);
+    });
+
+    const row = document.createElement('div');
+    row.className = 'fixture-round';
+    let badge;
+    if (isPast && lastResult?.won) badge = `<div class="fr-badge won">${lastResult.score} W</div>`;
+    else if (isCurrent) badge = `<div class="fr-badge active">▶ Now</div>`;
+    else badge = `<div class="fr-badge pending">–</div>`;
+    row.innerHTML = `
+      <div class="fr-round">${ROUND_LABELS[team.roundKey]}</div>
+      <div class="fr-team"><span class="kit-dot" style="background:${team.primary}"></span>${team.name}</div>
+      ${badge}`;
+    el.appendChild(row);
+  });
+}
+
+function renderGoldenBoot() {
+  const el = document.getElementById('golden-boot');
+  const byId = Object.fromEntries(STATE.players.map(p => [p.id, p]));
+  const allIds = [STATE.squad.gk, ...STATE.squad.outfield].filter(Boolean);
+  if (!allIds.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px">Pick your squad to track goals.</div>';
+    return;
+  }
+  const rows = allIds
+    .map(id => ({ id, name: byId[id] ? playerShortName(byId[id]) : `#${id}`, goals: STATE.goldenBoot[id] ?? 0 }))
+    .sort((a, b) => b.goals - a.goals);
+  const medals = ['🥇','🥈','🥉'];
+  el.innerHTML = rows.map((r, i) => `
+    <div class="gb-row">
+      <div class="gb-rank">${medals[i] ?? ''}</div>
+      <div class="gb-name">${r.name}</div>
+      <div class="gb-goals">${r.goals}</div>
+    </div>`).join('');
+}
+
+function renderSidePanel() {
+  renderFixtureTree();
+  renderGoldenBoot();
+}
+
+// ============================================================
+// § INIT
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+  showScreen('wallet');
+});
+</script>
+</body>
+</html>
