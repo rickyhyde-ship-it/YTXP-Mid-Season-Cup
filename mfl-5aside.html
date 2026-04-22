@@ -859,7 +859,7 @@ function renderTacticsScreen() {
 }
 
 // ── MATCH ─────────────────────────────────────────────────────
-let _matchRunning=false;
+let _matchRunning=false, _pendingLossReset=false;
 function runMatch() {
   if(_matchRunning) return; // prevent double-click launching two concurrent loops
   _matchRunning=true;
@@ -911,11 +911,10 @@ function showResult(scoreline,opp,userWins) {
   STATE.tournament.results.push({round:STATE.tournament.currentRound,opponent:opp.name,score:`${scoreline.user}–${scoreline.ai}`,won:userWins});
   const isFinalWin=userWins&&opp.roundKey==='Final';
   // For non-final outcomes, mutate state before showScreen so the sidebar renders correctly
-  if(!isFinalWin){
-    if(userWins) STATE.tournament.currentRound=Math.min(STATE.tournament.currentRound+1,AI_TEAMS.length-1);
-    else { STATE.tournament.currentRound=0; STATE.usedRage=[]; }
-    saveState();
-  }
+  // Win: advance state now so sidebar renders correctly on result screen
+  if(userWins&&!isFinalWin){ STATE.tournament.currentRound=Math.min(STATE.tournament.currentRound+1,AI_TEAMS.length-1); saveState(); }
+  // Loss: flag a pending reset — only applied when the player clicks "Try Again" or "Change Squad"
+  _pendingLossReset=!userWins;
   showScreen('result'); // renders sidebar with current (pre-reset for final) state
   document.getElementById('result-badge').textContent=isFinalWin?'🏆':userWins?'✅':'❌';
   const v=document.getElementById('result-verdict');
@@ -924,8 +923,12 @@ function showResult(scoreline,opp,userWins) {
   document.getElementById('result-score').textContent=`${scoreline.user} – ${scoreline.ai}`;
   document.getElementById('result-sub').textContent=isFinalWin?'🏆 You have won the YTXP Mid Season Cup!':userWins?`${ROUND_LABELS[opp.roundKey]} complete — You advance to the ${ROUND_LABELS[currentRoundKey()]}`:`${ROUND_LABELS[opp.roundKey]} — Eliminated. Back to the start.`;
   document.getElementById('btn-next-match').textContent=isFinalWin?'Play Again':userWins?'Next Match':'Try Again';
-  // Defer Final reset until AFTER rendering so sidebar shows the completed bracket
-  if(isFinalWin){ STATE.tournament.currentRound=0; STATE.tournament.results=[]; STATE.usedRage=[]; saveState(); }
+  document.getElementById('btn-next-match').onclick=()=>{
+    if(isFinalWin){ STATE.tournament.currentRound=0; STATE.tournament.results=[]; STATE.usedRage=[]; saveState(); }
+    else if(_pendingLossReset){ STATE.tournament.currentRound=0; STATE.usedRage=[]; _pendingLossReset=false; saveState(); }
+    const btn=document.getElementById('btn-kick-off'); if(btn) btn.disabled=false;
+    renderTacticsScreen(); showScreen('tactics');
+  };
 }
 
 // ── INIT ─────────────────────────────────────────────────────
@@ -959,9 +962,12 @@ window.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('picker-modal').addEventListener('click',e=>{ if(e.target===e.currentTarget) closePicker(); });
   document.getElementById('btn-kick-off').addEventListener('click',runMatch);
   document.getElementById('btn-change-squad').addEventListener('click',()=>{
-    STATE.squad={gk:null,outfield:[null,null,null,null]}; STATE.aiGoals={}; saveState(); renderSquadSlots(); renderSidePanel();
+    if(_pendingLossReset){ STATE.tournament.currentRound=0; STATE.usedRage=[]; _pendingLossReset=false; }
+    STATE.squad={gk:null,outfield:[null,null,null,null]}; STATE.aiGoals={}; saveState();
+    const btn=document.getElementById('btn-kick-off'); if(btn) btn.disabled=false;
+    renderSquadSlots(); renderSidePanel();
   });
-  document.getElementById('btn-next-match').addEventListener('click',()=>{ renderTacticsScreen(); showScreen('tactics'); });
+  // btn-next-match onclick is set dynamically in showResult per outcome
   document.getElementById('btn-reset').addEventListener('click',()=>{
     if(confirm('Reset the tournament? All progress and Golden Boot stats will be lost.')){ resetTournament(); renderTacticsScreen(); showScreen('tactics'); }
   });
