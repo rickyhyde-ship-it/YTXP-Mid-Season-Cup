@@ -730,14 +730,14 @@ function showScreen(name) {
 
 function renderTournamentStrip() {
   const el=document.getElementById('t-strip'); el.innerHTML='';
-  const last={};
-  STATE.tournament.results.forEach(r=>{ last[r.round]=r; });
+  const lastWin={};
+  STATE.tournament.results.forEach(r=>{ if(r.won) lastWin[r.round]=r; });
   AI_TEAMS.forEach((team,idx)=>{
     if(idx>0){ const sep=document.createElement('div'); sep.className='tsi-sep'; sep.textContent='›'; el.appendChild(sep); }
-    const r=last[idx], isCur=idx===STATE.tournament.currentRound, isPast=idx<STATE.tournament.currentRound;
+    const r=lastWin[idx], isCur=idx===STATE.tournament.currentRound, isPast=idx<STATE.tournament.currentRound;
     const item=document.createElement('div');
     item.className='tsi'+(isCur?' active':isPast?' done':'');
-    item.innerHTML=`<div class="tsi-dot"></div><div><div class="tsi-name">${ROUND_LABELS[team.roundKey]}</div>${r&&r.won?`<div class="tsi-score">${r.score} W</div>`:''}</div>`;
+    item.innerHTML=`<div class="tsi-dot"></div><div><div class="tsi-name">${ROUND_LABELS[team.roundKey]}</div>${isPast&&r?`<div class="tsi-score">${r.score} W</div>`:''}</div>`;
     el.appendChild(item);
   });
 }
@@ -879,6 +879,7 @@ function revealHighlights(highlights,scoreline,opp,userWins) {
   document.getElementById('match-continue').classList.add('hidden');
   let i=0;
   function startContinue() {
+    scoreEl.textContent=`${scoreline.user} – ${scoreline.ai}`; // guarantee scorebar matches final
     const contEl=document.getElementById('match-continue');
     const timerEl=document.getElementById('match-continue-timer');
     contEl.classList.remove('hidden');
@@ -914,7 +915,7 @@ function showResult(scoreline,opp,userWins) {
   v.textContent=userWins?(isFinalWin?'CHAMPIONS!':'WIN!'):'LOSS';
   v.className='result-verdict '+(userWins?'win':'loss');
   document.getElementById('result-score').textContent=`${scoreline.user} – ${scoreline.ai}`;
-  document.getElementById('result-sub').textContent=isFinalWin?'🏆 You have won the YTXP Mid Season Cup!':userWins?`You advance to the ${ROUND_LABELS[currentRoundKey()]}`:`Back to the ${ROUND_LABELS['R32']}`;
+  document.getElementById('result-sub').textContent=isFinalWin?'🏆 You have won the YTXP Mid Season Cup!':userWins?`${ROUND_LABELS[opp.roundKey]} complete — You advance to the ${ROUND_LABELS[currentRoundKey()]}`:`${ROUND_LABELS[opp.roundKey]} — Eliminated. Back to the start.`;
   document.getElementById('btn-next-match').textContent=isFinalWin?'Play Again':userWins?'Next Match':'Try Again';
 }
 
