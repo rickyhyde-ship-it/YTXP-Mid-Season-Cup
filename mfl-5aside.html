@@ -467,7 +467,7 @@ const DEPTH_OPTIONS     = ['Low','Balanced','High'];
 // 11 Tier E combos (10%): beat R16/QF/SF/Final — but NOT R32
 // Remaining 97 beat R32 at varying depths (A=32, B=27, C=22, D=16)
 // Win rates: R32=90% R16=70% QF=45% SF=25% Final=10%
-const TIER_E_SET = new Set([5,30,50,65,80,85,95,101,104,106,107]);
+const TIER_E_SET = new Set([5,50,85,101,107]); // ~5% of 108 combos beat the Final
 function buildTierMap() {
   const t = new Array(108), nonE = [];
   for (let i=0;i<108;i++) TIER_E_SET.has(i) ? (t[i]='E') : nonE.push(i);
@@ -859,7 +859,11 @@ function renderTacticsScreen() {
 }
 
 // ── MATCH ─────────────────────────────────────────────────────
+let _matchRunning=false;
 function runMatch() {
+  if(_matchRunning) return; // prevent double-click launching two concurrent loops
+  _matchRunning=true;
+  const btn=document.getElementById('btn-kick-off'); if(btn) btn.disabled=true;
   const opp=currentOpponent();
   const userWins=doesWin(STATE.formation,STATE.tactics.attacking,STATE.tactics.passing,STATE.tactics.depth,opp.roundKey);
   const scoreline=generateScoreline(userWins);
@@ -903,13 +907,16 @@ function revealHighlights(highlights,scoreline,opp,userWins) {
 }
 
 function showResult(scoreline,opp,userWins) {
+  _matchRunning=false; // allow next match
   STATE.tournament.results.push({round:STATE.tournament.currentRound,opponent:opp.name,score:`${scoreline.user}–${scoreline.ai}`,won:userWins});
   const isFinalWin=userWins&&opp.roundKey==='Final';
-  if(isFinalWin){ STATE.tournament.currentRound=0; STATE.tournament.results=[]; STATE.usedRage=[]; }
-  else if(userWins) STATE.tournament.currentRound=Math.min(STATE.tournament.currentRound+1,AI_TEAMS.length-1);
-  else { STATE.tournament.currentRound=0; STATE.usedRage=[]; }
-  saveState();
-  showScreen('result');
+  // For non-final outcomes, mutate state before showScreen so the sidebar renders correctly
+  if(!isFinalWin){
+    if(userWins) STATE.tournament.currentRound=Math.min(STATE.tournament.currentRound+1,AI_TEAMS.length-1);
+    else { STATE.tournament.currentRound=0; STATE.usedRage=[]; }
+    saveState();
+  }
+  showScreen('result'); // renders sidebar with current (pre-reset for final) state
   document.getElementById('result-badge').textContent=isFinalWin?'🏆':userWins?'✅':'❌';
   const v=document.getElementById('result-verdict');
   v.textContent=userWins?(isFinalWin?'CHAMPIONS!':'WIN!'):'LOSS';
@@ -917,6 +924,8 @@ function showResult(scoreline,opp,userWins) {
   document.getElementById('result-score').textContent=`${scoreline.user} – ${scoreline.ai}`;
   document.getElementById('result-sub').textContent=isFinalWin?'🏆 You have won the YTXP Mid Season Cup!':userWins?`${ROUND_LABELS[opp.roundKey]} complete — You advance to the ${ROUND_LABELS[currentRoundKey()]}`:`${ROUND_LABELS[opp.roundKey]} — Eliminated. Back to the start.`;
   document.getElementById('btn-next-match').textContent=isFinalWin?'Play Again':userWins?'Next Match':'Try Again';
+  // Defer Final reset until AFTER rendering so sidebar shows the completed bracket
+  if(isFinalWin){ STATE.tournament.currentRound=0; STATE.tournament.results=[]; STATE.usedRage=[]; saveState(); }
 }
 
 // ── INIT ─────────────────────────────────────────────────────
